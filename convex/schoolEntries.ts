@@ -617,3 +617,76 @@ Rules:
 
   return parsed;
 }
+
+// Public query: get recent low-confidence or failed entries for a child
+export const getRecentIssues = query({
+  args: {
+    childId: v.id("children"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return [];
+
+    // Get entries from last 2 days that have issues
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const cutoffDate = twoDaysAgo.toISOString().split("T")[0];
+
+    const entries = await ctx.db
+      .query("schoolEntries")
+      .withIndex("by_childId", (q) => q.eq("childId", args.childId))
+      .filter((q: any) =>
+        q.and(
+          q.gte(q.field("entryDate"), cutoffDate),
+          q.or(
+            q.eq(q.field("processingStatus"), "low_confidence"),
+            q.eq(q.field("processingStatus"), "failed")
+          )
+        )
+      )
+      .collect();
+
+    // Get PDF URLs for each entry
+    const entriesWithUrls = await Promise.all(
+      entries.map(async (entry) => {
+        const url = await ctx.storage.getUrl(entry.fileStorageId);
+        return { ...entry, pdfUrl: url };
+      })
+    );
+
+    return entriesWithUrls;
+  },
+});
+
+// Public query: get pending/processing entries for a child (real-time status)
+export const getPendingForChild = query({
+  args: {
+    childId: v.id("children"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const today = new Date().toISOString().split("T")[0];
+
+    return await ctx.db
+      .query("schoolEntries")
+      .withIndex("by_childId", (q) => q.eq("childId", args.childId))
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field("entryDate"), today),
+          q.or(
+            q.eq(q.field("processingStatus"), "pending"),
+            q.eq(q.field("processingStatus"), "processing")
+          )
+        )
+      )
+      .collect();
+  },
+});

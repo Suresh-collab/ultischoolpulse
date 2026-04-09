@@ -15,6 +15,9 @@ import type * as schoolEntries from "../schoolEntries";
 import type * as homework from "../homework";
 import type * as exams from "../exams";
 import type * as classwork from "../classwork";
+import type * as children from "../children";
+import type * as crons from "../crons";
+import type * as digests from "../digests";
 import type * as http from "../http";
 
 type FullApi = ApiFromModules<{
@@ -23,6 +26,9 @@ type FullApi = ApiFromModules<{
   homework: typeof homework;
   exams: typeof exams;
   classwork: typeof classwork;
+  children: typeof children;
+  crons: typeof crons;
+  digests: typeof digests;
   http: typeof http;
 }>;
 

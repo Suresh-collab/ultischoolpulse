@@ -88,4 +88,41 @@ http.route({
   }),
 });
 
+// Unsubscribe from digest emails
+http.route({
+  path: "/unsubscribe",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const userId = url.searchParams.get("userId");
+
+    if (!userId) {
+      return new Response("Missing userId parameter", { status: 400 });
+    }
+
+    try {
+      await ctx.runMutation(internal.digests.unsubscribeUser, {
+        userId: userId as any,
+      });
+
+      return new Response(
+        `<!DOCTYPE html>
+<html>
+<head><title>Unsubscribed</title></head>
+<body style="font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F8FAFA">
+  <div style="text-align:center;padding:40px">
+    <h1 style="color:#0F7B6C;margin-bottom:8px">Unsubscribed</h1>
+    <p style="color:#6B7280">You won't receive any more digest emails from ULTISchoolPulse.</p>
+    <p style="color:#9CA3AF;font-size:14px">You can re-enable digests anytime in Settings.</p>
+  </div>
+</body>
+</html>`,
+        { status: 200, headers: { "Content-Type": "text/html" } }
+      );
+    } catch {
+      return new Response("Something went wrong", { status: 500 });
+    }
+  }),
+});
+
 export default http;

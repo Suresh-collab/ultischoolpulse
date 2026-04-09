@@ -10,6 +10,7 @@ export default defineSchema({
     role: v.union(v.literal("parent"), v.literal("tutor")),
     digestTime: v.string(), // "morning" | "evening"
     digestEnabled: v.boolean(),
+    onboardingComplete: v.optional(v.boolean()),
     createdAt: v.number(),
   }).index("by_clerkId", ["clerkId"]),
 

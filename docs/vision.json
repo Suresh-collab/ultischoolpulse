@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "createdAt": "2026-04-08T00:00:00Z",
+    "updatedAt": "2026-04-08T00:00:00Z",
+    "version": "1.0",
+    "plaidVersion": "1.0"
+  },
+  "creator": {
+    "name": "Christian",
+    "expertise": "Parent, entrepreneur, and AI developer",
+    "background": "Christian is a parent who experiences firsthand the daily frustration of school WhatsApp groups — PDFs and messages pile up, and between work and parenting it's nearly impossible to stay on top of what homework is due, what was taught, and when exams are coming. As an AI developer and entrepreneur, he has both the technical skills and the lived experience to build the solution his own family needs, and knows other families in different schools face the same problem."
+  },
+  "purpose": {
+    "whoYouHelp": "Parents, school-age kids, and home tutors who rely on WhatsApp-based school communication but struggle to monitor, review, and act on daily messages and PDF attachments about homework, classwork, and upcoming exams",
+    "problemYouSolve": "Schools send daily transaction PDFs via WhatsApp detailing what was taught, homework assigned, and upcoming slip tests or exams. Parents and kids cannot realistically monitor WhatsApp every day, PDFs go unread, and critical information — like a slip test tomorrow — gets missed. Home tutors have no easy way to know what the school covered that day to align their sessions.",
+    "desiredTransformation": "Families go from drowning in unread WhatsApp PDFs and missed homework reminders to having a single organized dashboard that tells them exactly what's due today, what was covered in class, and what exams are coming — delivered as a clean daily or weekly digest so nothing slips through.",
+    "whyYou": "Christian is a parent living this exact problem every day, and an AI developer with the skills to solve it. He's not building a hypothetical — he's building the tool his own family needs right now, with direct insight into where the current process breaks down and what would actually make a difference."
+  },
+  "product": {
+    "name": "ULTISchoolPulse",
+    "oneLiner": "ULTISchoolPulse turns your school's daily WhatsApp PDFs into organized homework trackers, lesson summaries, and exam alerts for parents, kids, and home tutors.",
+    "howItWorks": "The school sends a daily transaction PDF via WhatsApp. The parent saves the PDF into a monitored folder (one tap on mobile — Share to Files). ULTISchoolPulse's AI engine detects the new file, parses it regardless of the school's format, and extracts structured data: what was taught today, classwork completed, homework assigned, and any upcoming slip tests or exams with dates and portions. This is organized into three role-specific dashboards — a kid-friendly task view, a parent monitoring view, and a tutor planning view. Daily or weekly digest notifications are sent via email so stakeholders stay informed without opening the app.",
+    "keyCapabilities": [
+      "AI-powered PDF parsing that handles varied formats across different schools — no templates required",
+      "Structured extraction of homework, classwork covered, lesson topics, and upcoming exams/slip tests with dates and portions",
+      "Three role-specific dashboards: kid task planner, parent monitoring view, and home tutor session planner",
+      "Monitored folder intake — PDFs dropped or shared into a folder are auto-processed immediately",
+      "Daily and weekly digest notifications via email (WhatsApp Business API in v2)",
+      "Multi-child and multi-school support for families with children at different schools"
+    ],
+    "platform": "web",
+    "marketDifferentiation": "Unlike school apps that require institutional buy-in, ULTISchoolPulse works with any school's existing WhatsApp-based communication without asking the school to change anything. The AI parsing layer handles format variation across schools automatically, and the product serves all three stakeholders in the home — parent, child, and tutor — each with a view tailored to their needs.",
+    "magicMoment": "A parent opens ULTISchoolPulse after a long workday and in 10 seconds sees: 'Today's homework: Math exercises 5–10, draw a diagram for Science. Upcoming: English slip test on Friday — chapters 4 and 5.' No WhatsApp scrolling, no PDF hunting. Everything is ready."
+  },
+  "audience": {
+    "primaryUser": "Priya, 38, working parent with two school-age children. She gets 5–10 WhatsApp messages daily from the school group, many with PDF attachments. She checks WhatsApp sporadically and often misses homework reminders or exam notices until her child mentions it at 9pm. She wants to be on top of her kids' schoolwork but the volume of information makes it feel impossible.",
+    "secondaryUsers": [
+      "School-age kids (ages 7–16) who need a simple, friendly view of what homework they have to complete today and what exams to prepare for — without wading through PDFs",
+      "Home tutors who sit with the child 3–5 days a week and need to know what the school covered that day so they can reinforce lessons, check homework, and prepare the child for upcoming exams"
+    ],
+    "currentAlternatives": "Manually scrolling WhatsApp to find and open PDF attachments, maintaining personal notes or WhatsApp saved messages, using a physical diary or homework notebook the child fills in themselves (often incomplete), or calling another parent to ask what the homework was",
+    "frustrations": "WhatsApp is noisy and not designed for information retrieval. PDF attachments require tapping to open and reading a full formatted document just to find out tonight's homework. Information is ephemeral — scrolling back three days to find last Thursday's slip test announcement is painful. There is no consolidated view across subjects or across time, and no shared visibility between parent, child, and tutor."
+  },
+  "business": {
+    "revenueModel": "free",
+    "initialGoal": "Working prototype used by Christian's own family within 90 days, then beta with 10–20 families across different schools to validate that the AI parser handles format diversity reliably",
+    "sixMonthVision": "Validated multi-school parser with proven accuracy across diverse PDF formats, an active beta community of 20–50 families, documented real-world impact stories, and a clear freemium monetization path ready to activate (free for 1 child, paid for multiple children or advanced features like tutor collaboration and exam prep tracking)",
+    "constraints": "Solo builder working around parenting and other commitments. MVP must be simple enough to build quickly — folder-watch input removes WhatsApp API complexity for v1. Different schools produce differently formatted PDFs so the AI parsing layer must be flexible and improvable. Budget is lean — infrastructure and AI API costs should stay minimal in early stages.",
+    "goToMarket": "Start with Christian's own family as user zero. Expand to personal network of parents in different schools for beta. Gather format samples from each school to improve parser coverage. Word of mouth through parent WhatsApp groups and school communities. No paid acquisition until product is proven."
+  },
+  "feeling": {
+    "brandPersonality": "A smart, calm family assistant — like a well-organized parent who always knows what's due and when. Warm and reassuring for parents, bright and encouraging for kids. Trustworthy, not flashy. It feels like someone has your back.",
+    "visualMood": "Dual-register: clean and structured for the parent and tutor views (think organized dashboard, clear typography, calm blues and greens), and brighter and friendlier for the kid view (warmer accent colors, larger text, card-based layout that feels approachable). The overall palette is calm and professional with just enough warmth to feel human.",
+    "toneOfVoice": "Clear, warm, and actionable. Speaks in plain language — never school-admin jargon. Example: 'Here's what's on the plate for today' not 'View current scholastic obligations.' Encourages the child without being condescending. For parents: reassuring and efficient. For kids: friendly and direct.",
+    "antiPatterns": "Never feel like another app to check — it should push the important stuff to you. Never feel clinical or corporate. Never overwhelm with too much information at once. Never feel like it's lecturing parents about their child's education. Never be slow — if parsing takes time, show a progress state, not a blank screen."
+  },
+  "techStack": {
+    "appType": "web",
+    "frontend": {
+      "choice": "Next.js",
+      "rationale": "Best ecosystem for rapid dashboard development, excellent Convex integration, deploys to Vercel with zero config, and supports future mobile expansion via React Native code sharing"
+    },
+    "backend": {
+      "choice": "Convex",
+      "rationale": "Real-time reactive queries ideal for multi-user family scenarios (parent and tutor both see the same child's updated data instantly), built-in file storage for incoming PDFs, TypeScript end-to-end, and zero backend boilerplate so Christian can move fast as a solo builder"
+    },
+    "database": {
+      "choice": "Convex Database",
+      "rationale": "Included with Convex, automatic indexing, ACID transactions, and reactive queries — perfect for structured school data (subjects, homework entries, exam schedules) that multiple stakeholders query simultaneously"
+    },
+    "auth": {
+      "choice": "Clerk",
+      "rationale": "Fast setup with pre-built UI components, supports family/multi-user account structures (parent linking child and tutor), generous free tier suitable for beta phase"
+    },
+    "payments": {
+      "choice": "",
+      "rationale": "No payments in MVP — product is free during personal use and beta phases. Polar will be added when freemium monetization activates post-beta."
+    }
+  },
+  "tooling": {
+    "codingAgent": "claude-code"
+  }
+}

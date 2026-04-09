@@ -8,6 +8,7 @@ type Child = {
   name: string;
   schoolName: string;
   grade?: string;
+  pendingTutorInvites?: string[];
 };
 
 type ChildContextValue = {
@@ -25,9 +26,11 @@ export function ChildProvider({ children: reactChildren }: { children: React.Rea
 
   const setChildren = useCallback((newChildren: Child[]) => {
     setChildList(newChildren);
-    // Auto-select first child if none selected or selected was removed
-    if (newChildren.length > 0 && (!selectedChildId || !newChildren.find(c => c._id === selectedChildId))) {
+    // Auto-select: single child → select it; multiple → null (All) unless already valid
+    if (newChildren.length === 1) {
       setSelectedChildId(newChildren[0]._id);
+    } else if (newChildren.length > 1 && selectedChildId !== null && !newChildren.find(c => c._id === selectedChildId)) {
+      setSelectedChildId(null);
     }
     if (newChildren.length === 0) {
       setSelectedChildId(null);

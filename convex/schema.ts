@@ -21,6 +21,7 @@ export default defineSchema({
     schoolName: v.string(),
     grade: v.optional(v.string()),
     tutorIds: v.array(v.id("users")),
+    pendingTutorInvites: v.optional(v.array(v.string())),
     watchedFolderPath: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_parentId", ["parentId"]),

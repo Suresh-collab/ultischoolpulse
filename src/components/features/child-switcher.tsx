@@ -33,7 +33,7 @@ export function ChildSwitcher() {
   }
 
   const selected = children.find((c) => c._id === selectedChildId);
-  const displayName = selected?.name ?? "Select child";
+  const displayName = selected?.name ?? "All Children";
 
   return (
     <div ref={ref} className="relative">
@@ -53,6 +53,20 @@ export function ChildSwitcher() {
 
       {open && (
         <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-[var(--radius-md)] border border-border bg-surface py-1 shadow-md">
+          <button
+            onClick={() => {
+              setSelectedChildId(null);
+              setOpen(false);
+            }}
+            className={cn(
+              "w-full px-3 py-2 text-left text-sm transition-colors",
+              selectedChildId === null
+                ? "bg-primary-light text-primary font-medium"
+                : "text-text-primary hover:bg-primary-light"
+            )}
+          >
+            All Children
+          </button>
           {children.map((child) => (
             <button
               key={child._id}

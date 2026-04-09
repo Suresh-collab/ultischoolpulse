@@ -212,6 +212,14 @@ function ChildrenSection() {
             {tutorStatus[child._id] && (
               <p className="text-xs text-success">{tutorStatus[child._id]}</p>
             )}
+
+            {/* Pending tutor invites */}
+            {child.pendingTutorInvites && child.pendingTutorInvites.length > 0 && (
+              <div className="text-xs text-text-secondary">
+                <span className="font-medium">Pending invites:</span>{" "}
+                {child.pendingTutorInvites.join(", ")}
+              </div>
+            )}
           </div>
         ))}
 

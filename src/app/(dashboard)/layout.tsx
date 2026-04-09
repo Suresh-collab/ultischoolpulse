@@ -29,15 +29,37 @@ function UserSync() {
   return null;
 }
 
-function OnboardingGuard() {
+function OnboardingAndRoleGuard() {
   const currentUser = useQuery(api.users.getCurrent);
   const router = useRouter();
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
 
   useEffect(() => {
-    if (currentUser && currentUser.onboardingComplete === false) {
+    if (!currentUser) return;
+
+    // Onboarding redirect
+    if (currentUser.onboardingComplete === false) {
       router.push("/onboarding");
+      return;
     }
-  }, [currentUser, router]);
+
+    // Role-based routing
+    if (currentUser.role === "tutor") {
+      // Tutors should land on /tutor, redirect from parent routes
+      if (
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/kid") ||
+        pathname.startsWith("/settings")
+      ) {
+        router.push("/tutor");
+      }
+    } else if (currentUser.role === "parent") {
+      // Parents accessing /tutor get redirected to /dashboard
+      if (pathname.startsWith("/tutor")) {
+        router.push("/dashboard");
+      }
+    }
+  }, [currentUser, router, pathname]);
 
   return null;
 }
@@ -70,7 +92,7 @@ export default function DashboardLayout({
         {mounted && (
           <>
             <UserSync />
-            <OnboardingGuard />
+            <OnboardingAndRoleGuard />
             <ChildSync />
           </>
         )}

@@ -1,8 +1,7 @@
+export const dynamic = "force-dynamic";
+
+import TutorContent from "./tutor-content";
+
 export default function TutorPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-text-primary">Tutor View</h1>
-      <p className="text-text-secondary">Coming soon</p>
-    </div>
-  );
+  return <TutorContent />;
 }

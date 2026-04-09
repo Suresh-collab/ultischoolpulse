@@ -1,5 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
+import { Id } from "./_generated/dataModel";
 
 export const list = query({
   args: {},
@@ -121,8 +122,79 @@ export const addTutor = mutation({
       return { status: "linked" as const };
     }
 
-    // Tutor not found — stub for invite (will be implemented in Phase 3)
-    // TODO: Send invite email via Resend
+    // Tutor not found — store pending invite
+    const pending = child.pendingTutorInvites ?? [];
+    if (!pending.includes(args.tutorEmail)) {
+      await ctx.db.patch(args.childId, {
+        pendingTutorInvites: [...pending, args.tutorEmail],
+      });
+    }
+
     return { status: "invite_pending" as const };
+  },
+});
+
+// Query: list children where this tutor is linked
+export const listForTutor = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return [];
+
+    // No index on tutorIds, so we scan all children
+    const allChildren = await ctx.db.query("children").collect();
+    return allChildren.filter((child) => child.tutorIds.includes(user._id));
+  },
+});
+
+// Internal mutation: accept a tutor invite via token (childId:email hash)
+export const acceptTutorInvite = internalMutation({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Token format: base64(childId:email)
+    let decoded: string;
+    try {
+      decoded = atob(args.token);
+    } catch {
+      throw new ConvexError("Invalid token");
+    }
+
+    const separatorIdx = decoded.indexOf(":");
+    if (separatorIdx === -1) throw new ConvexError("Invalid token format");
+
+    const childId = decoded.slice(0, separatorIdx) as Id<"children">;
+    const email = decoded.slice(separatorIdx + 1);
+
+    const child = await ctx.db.get(childId);
+    if (!child) throw new ConvexError("Child not found");
+
+    // Find tutor user by email
+    const tutor = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), email))
+      .unique();
+
+    if (!tutor) throw new ConvexError("Tutor account not found — sign up first");
+
+    // Link tutor if not already linked
+    if (!child.tutorIds.includes(tutor._id)) {
+      await ctx.db.patch(childId, {
+        tutorIds: [...child.tutorIds, tutor._id],
+      });
+    }
+
+    // Remove from pending invites
+    const pending = child.pendingTutorInvites ?? [];
+    await ctx.db.patch(childId, {
+      pendingTutorInvites: pending.filter((e: string) => e !== email),
+    });
   },
 });

@@ -49,3 +49,26 @@ export const forChildThisWeek = query({
       .collect();
   },
 });
+
+export const forChildByDateRange = query({
+  args: {
+    childId: v.id("children"),
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await verifyChildOwnership(ctx, args.childId);
+
+    return await ctx.db
+      .query("classworkItems")
+      .withIndex("by_childId_and_date")
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field("childId"), args.childId),
+          q.gte(q.field("entryDate"), args.startDate),
+          q.lte(q.field("entryDate"), args.endDate)
+        )
+      )
+      .collect();
+  },
+});

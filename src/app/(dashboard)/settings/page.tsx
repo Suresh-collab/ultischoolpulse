@@ -1,8 +1,7 @@
+export const dynamic = "force-dynamic";
+
+import SettingsContent from "./settings-content";
+
 export default function SettingsPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
-      <p className="text-text-secondary">Coming soon</p>
-    </div>
-  );
+  return <SettingsContent />;
 }

@@ -11,19 +11,28 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as users from "../users";
+import type * as schoolEntries from "../schoolEntries";
+import type * as homework from "../homework";
+import type * as exams from "../exams";
+import type * as classwork from "../classwork";
+import type * as http from "../http";
 
 type FullApi = ApiFromModules<{
   users: typeof users;
+  schoolEntries: typeof schoolEntries;
+  homework: typeof homework;
+  exams: typeof exams;
+  classwork: typeof classwork;
+  http: typeof http;
 }>;
 
-// Runtime stub that creates nested function references on access.
-// This will be replaced by the real generated file when `npx convex dev` runs.
-function makeApi(path: string[] = []): any {
+// Runtime stub using Proxy for SSR compatibility.
+// Replaced by real generated file when `npx convex dev` runs.
+function makeApi(): any {
   return new Proxy({} as any, {
     get(_target, prop: string) {
       if (typeof prop === "string") {
-        const newPath = [...path, prop];
-        return makeApi(newPath);
+        return makeApi();
       }
       return undefined;
     },

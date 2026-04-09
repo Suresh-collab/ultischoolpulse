@@ -91,39 +91,39 @@
 
 ---
 
-- [ ] **TASK-012** — Create the Convex HTTP action for PDF ingestion
+- [x] **TASK-012** — Create the Convex HTTP action for PDF ingestion
   Files: `convex/http.ts`, `convex/schoolEntries.ts`
   Notes: Create `convex/http.ts` with a POST route at `/ingest-pdf`. The action should: (1) validate `Authorization: Bearer {CONVEX_DEPLOY_KEY}` header — return 401 if invalid, (2) parse FormData from the request body — fields: `childId` (Convex ID string), `fileName` (string), `fileContent` (base64 string of PDF bytes), (3) store the PDF in Convex file storage using `ctx.storage.store()`, (4) create a `schoolEntries` record with status `"pending"`, (5) schedule `schoolEntries.processEntry` action to run immediately using `ctx.scheduler.runAfter(0, ...)`. Return JSON `{ entryId, status: "queued" }`. Add `CONVEX_DEPLOY_KEY` to Convex environment variables. Verify: use `curl` to POST a test PDF to the HTTP action URL and confirm a `schoolEntries` record appears in the Convex dashboard.
 
-- [ ] **TASK-013** — Create the file watcher process
+- [x] **TASK-013** — Create the file watcher process
   Files: `watcher/index.ts`, `watcher/upload.ts`, `watcher/package.json`, `watcher/.env`, `watcher/tsconfig.json`
   Notes: Create a separate Node.js package in `watcher/`. Install `chokidar`, `node-fetch`, `dotenv`. In `watcher/index.ts`: use `chokidar.watch(WATCHED_FOLDER_PATH, { ignoreInitial: false })` to watch the folder. On `add` event for `.pdf` files: call `upload.ts` to send the file to the Convex HTTP action. `watcher/upload.ts` should: read the file as a Buffer, base64-encode it, send a POST request with FormData fields `childId`, `fileName`, and `fileContent`. Include logic to skip files already uploaded today (maintain a simple in-memory Set of processed filenames). Add startup scan: on launch, check folder for any `.pdf` files and queue them. Env vars: `WATCHED_FOLDER_PATH`, `CONVEX_HTTP_ACTION_URL`, `CONVEX_DEPLOY_KEY`, `DEFAULT_CHILD_ID`. Add `watcher/` to root `.gitignore` for `node_modules`. Verify: start watcher, drop a PDF into the folder, confirm the HTTP action is called and a `schoolEntries` record is created.
 
-- [ ] **TASK-014** — Implement PDF text extraction
+- [x] **TASK-014** — Implement PDF text extraction
   Files: `convex/extraction.ts`
   Notes: Install `pdf-parse` (in the main Next.js project — Convex actions run in a Node-like environment). Create `convex/extraction.ts` with a helper function `extractPdfText(fileBuffer: ArrayBuffer): Promise<string>`. Use `pdf-parse` to extract text. If the extracted text is under 100 characters (image-based PDF), set a flag `isImagePdf: true` and return the empty string — the next step will handle it via vision. Include error handling: catch `pdf-parse` exceptions and return an empty string with the `isImagePdf` flag. Notes: `pdf-parse` is an `action`-compatible library — it can be called from a Convex action. Verify: test with both a text-based PDF and an image-based PDF — confirm text extraction works for text PDFs and returns near-empty for image PDFs.
 
-- [ ] **TASK-015** — Build the AI extraction prompt and structured output call
+- [x] **TASK-015** — Build the AI extraction prompt and structured output call
   Files: `convex/extraction.ts`
   Notes: Add function `callAiExtraction(content: string | ArrayBuffer, isImage: boolean, entryDate: string, schoolName: string, childName: string): Promise<ExtractionResult>` in `convex/extraction.ts`. Install `openai`. Set `OPENAI_API_KEY` in Convex environment. Use `gpt-4o` model. For text PDFs: send content as a text message. For image PDFs: convert PDF pages to base64 PNG images using a Node canvas approach, then send as `image_url` messages to GPT-4o vision. Use the `response_format: { type: "json_object" }` parameter to enforce JSON output. The extraction prompt should request this JSON structure: `{ date: string, confidence: number (0-1), subjects: [{ name: string, homework: [{ description: string, dueDate: string }], classwork: [{ topics: string[] }] }], exams: [{ subject: string, examType: string, examDate: string, portions: string[] }] }`. Include in the prompt: the school name, child name, entry date as context. Instructions: "If a date is relative (e.g. 'next Friday'), resolve it based on the entry date provided. If you cannot determine a value with confidence, omit the field and reduce the confidence score." Verify: test the function with 3 different real school PDFs. Log the raw extraction output. Confirm JSON is returned and confidence scores vary appropriately.
 
-- [ ] **TASK-016** — Implement the full processing action in Convex
+- [x] **TASK-016** — Implement the full processing action in Convex
   Files: `convex/schoolEntries.ts`, `convex/extraction.ts`
   Notes: Create the `schoolEntries.processEntry` Convex action (see PRD § API Specification). The action should: (1) fetch the `schoolEntry` by ID, (2) update status to `"processing"`, (3) retrieve the PDF from Convex file storage using `ctx.storage.get()`, (4) call `extractPdfText()`, (5) call `callAiExtraction()`, (6) check confidence: if ≥0.85, proceed to store extracted items; if <0.85, set status to `"low_confidence"` and store `rawExtractedJson`, (7) on any unhandled exception, catch and set status to `"failed"` with `errorMessage`. Rate limit check at the start: query recent entries for this parent in the last hour — if count ≥ 10, throw and mark as failed with message "Rate limit reached." Verify: drop a real school PDF and monitor the Convex dashboard to watch status transition from `pending` → `processing` → `complete` (or `low_confidence`).
 
-- [ ] **TASK-017** — Store extracted homework items
+- [x] **TASK-017** — Store extracted homework items
   Files: `convex/schoolEntries.ts`
   Notes: Within the `processEntry` action, after successful extraction (confidence ≥ 0.85): for each subject with homework items in the AI response, call a `storeHomeworkItems` internal mutation. The mutation creates `homeworkItems` records with `childId`, `parentId`, `schoolEntryId`, `subject`, `description`, `dueDate` (use `entryDate` as `dueDate` if the AI doesn't specify a separate due date), `assignedDate: entryDate`, `isComplete: false`. Deduplicate: before inserting, check if a homework item with the same `childId + subject + assignedDate + description` already exists — skip if so. Verify: process a PDF and confirm `homeworkItems` records appear in the Convex dashboard with correct subject and description fields.
 
-- [ ] **TASK-018** — Store extracted classwork and exam items
+- [x] **TASK-018** — Store extracted classwork and exam items
   Files: `convex/schoolEntries.ts`
   Notes: Following the same pattern as TASK-017, store `classworkItems` and `examItems` from the extracted data. For `classworkItems`: `subject`, `topicsCovered` (array), `entryDate`. For `examItems`: `subject`, `examType` (map AI output to one of the valid enum values — default `"other"` if unrecognized), `examDate`, `portions` (array), `announcedDate: entryDate`, `isAcknowledged: false`. Exam deduplication: check for existing exam with same `childId + subject + examDate` before inserting. Verify: process a PDF that includes exam announcements — confirm `examItems` records appear with correct dates and portions.
 
-- [ ] **TASK-019** — Create Convex queries for homework, classwork, and exams
+- [x] **TASK-019** — Create Convex queries for homework, classwork, and exams
   Files: `convex/homework.ts`, `convex/exams.ts`, `convex/classwork.ts`
   Notes: Implement the queries defined in PRD § API Specification: `homework.forChildToday`, `homework.forChildThisWeek`, `exams.upcoming`, `classwork.forChildThisWeek`. Each query must call `ctx.auth.getUserIdentity()` and verify ownership (check that the requested `childId` belongs to the authenticated user's parent record). `exams.upcoming` default `daysAhead` to 14 if not specified. Include `homework.markComplete` and `exams.acknowledge` mutations. Verify: query each endpoint from the Convex dashboard using test data — confirm results are correct and ownership check blocks cross-account access.
 
-- [ ] **TASK-020** — Add retry logic and failure recovery
+- [x] **TASK-020** — Add retry logic and failure recovery
   Files: `convex/schoolEntries.ts`
   Notes: For AI API failures (timeouts, 429 rate limit): catch these specifically and schedule a retry using `ctx.scheduler.runAfter()` — 1 minute for first retry, 5 minutes for second, 15 minutes for third. After 3 failed retries, mark as `"failed"` permanently. Store retry count in `schoolEntries` (add `retryCount: v.optional(v.number())` to schema). For Convex file storage retrieval failures: mark as failed immediately (not retriable). Verify: simulate an AI API failure by temporarily using an invalid API key — confirm status transitions to failed after retries, and entries recover when the key is restored.
 

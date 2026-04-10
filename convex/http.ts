@@ -77,7 +77,7 @@ http.route({
     // 5. Schedule processing
     await ctx.scheduler.runAfter(
       0,
-      internal.schoolEntries.processEntry,
+      internal.processEntry.processEntry,
       { entryId }
     );
 

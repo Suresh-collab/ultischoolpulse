@@ -101,8 +101,7 @@ export default defineSchema({
     isAcknowledged: v.boolean(),
     createdAt: v.number(),
   })
-    .index("by_childId_and_examDate", ["childId", "examDate"])
-    .index("by_childId_upcoming", ["childId", "examDate"]),
+    .index("by_childId_and_examDate", ["childId", "examDate"]),
 
   // Digest log — record of sent digests
   digestLog: defineTable({

@@ -37,27 +37,42 @@ export const createEntryFromUpload = mutation({
 
     const entryDate = new Date().toISOString().split("T")[0];
 
-    // Dedup: skip if same file already successfully processed for this child today
-    const existing = await ctx.db
+    // Dedup: only skip if same file was already SUCCESSFULLY processed today.
+    // Allow re-uploads for failed, stuck (pending/processing > 5 min), or new files.
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const existingEntries = await ctx.db
       .query("schoolEntries")
       .withIndex("by_childId", (q) => q.eq("childId", args.childId))
       .filter((q) =>
         q.and(
           q.eq(q.field("fileName"), args.fileName),
-          q.eq(q.field("entryDate"), entryDate),
-          q.or(
-            q.eq(q.field("processingStatus"), "complete"),
-            q.eq(q.field("processingStatus"), "pending"),
-            q.eq(q.field("processingStatus"), "processing")
-          )
+          q.eq(q.field("entryDate"), entryDate)
         )
       )
-      .first();
+      .collect();
 
-    if (existing) {
+    // Only block if there's a completed entry or a recently-started active one
+    const blocking = existingEntries.find((e) =>
+      e.processingStatus === "complete" ||
+      ((e.processingStatus === "pending" || e.processingStatus === "processing") &&
+        e.createdAt > fiveMinutesAgo)
+    );
+
+    if (blocking) {
       // Delete the uploaded file since we won't use it
       await ctx.storage.delete(args.storageId);
-      return existing._id; // Return existing entry instead of creating duplicate
+      return blocking._id; // Return existing entry instead of creating duplicate
+    }
+
+    // Clean up old failed/stuck entries for this filename so they don't pile up
+    for (const old of existingEntries) {
+      if (old.processingStatus === "failed" || old.createdAt <= fiveMinutesAgo) {
+        await ctx.db.patch(old._id, {
+          processingStatus: "failed",
+          errorMessage: "Superseded by re-upload",
+          processedAt: Date.now(),
+        });
+      }
     }
 
     const entryId = await ctx.db.insert("schoolEntries", {
@@ -66,6 +81,7 @@ export const createEntryFromUpload = mutation({
       fileStorageId: args.storageId,
       fileName: args.fileName,
       entryDate,
+      extractedText: args.extractedText,
       processingStatus: "pending",
       createdAt: Date.now(),
     });

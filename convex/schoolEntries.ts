@@ -96,7 +96,7 @@ export const storeHomeworkItems = internalMutation({
   },
   handler: async (ctx, args) => {
     for (const item of args.items) {
-      // Deduplicate: check if same homework already exists
+      // Check if same homework already exists for this child+subject+date
       const existing = await ctx.db
         .query("homeworkItems")
         .withIndex("by_childId_and_dueDate")
@@ -105,13 +105,20 @@ export const storeHomeworkItems = internalMutation({
             q.eq(q.field("childId"), args.childId),
             q.eq(q.field("dueDate"), item.dueDate),
             q.eq(q.field("subject"), item.subject),
-            q.eq(q.field("description"), item.description),
             q.eq(q.field("assignedDate"), item.assignedDate)
           )
         )
         .first();
 
-      if (!existing) {
+      if (existing) {
+        // Update existing item if description changed (re-upload with corrections)
+        if (existing.description !== item.description) {
+          await ctx.db.patch(existing._id, {
+            description: item.description,
+            schoolEntryId: args.schoolEntryId,
+          });
+        }
+      } else {
         await ctx.db.insert("homeworkItems", {
           schoolEntryId: args.schoolEntryId,
           childId: args.childId,
@@ -145,7 +152,7 @@ export const storeClassworkItems = internalMutation({
   },
   handler: async (ctx, args) => {
     for (const item of args.items) {
-      // Deduplicate: check if same subject+date classwork already exists
+      // Check if same subject+date classwork already exists
       const existing = await ctx.db
         .query("classworkItems")
         .withIndex("by_childId_and_date")
@@ -158,7 +165,17 @@ export const storeClassworkItems = internalMutation({
         )
         .first();
 
-      if (!existing) {
+      if (existing) {
+        // Update existing item if content changed (re-upload with corrections)
+        const topicsChanged = JSON.stringify(existing.topicsCovered) !== JSON.stringify(item.topicsCovered);
+        if (topicsChanged || existing.notes !== item.notes) {
+          await ctx.db.patch(existing._id, {
+            topicsCovered: item.topicsCovered,
+            notes: item.notes,
+            schoolEntryId: args.schoolEntryId,
+          });
+        }
+      } else {
         await ctx.db.insert("classworkItems", {
           schoolEntryId: args.schoolEntryId,
           childId: args.childId,
@@ -234,6 +251,28 @@ export const storeExamItems = internalMutation({
         });
       }
     }
+  },
+});
+
+// Internal query: list all pending entries (for reprocessing)
+export const listPendingEntries = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("schoolEntries")
+      .withIndex("by_status", (q) => q.eq("processingStatus", "pending"))
+      .collect();
+  },
+});
+
+// Internal mutation: update the entry date (when PDF contains the actual date)
+export const updateEntryDate = internalMutation({
+  args: {
+    entryId: v.id("schoolEntries"),
+    entryDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.entryId, { entryDate: args.entryDate });
   },
 });
 
@@ -409,6 +448,41 @@ export const cleanAllData = internalMutation({
       }
     }
     return { deleted: count };
+  },
+});
+
+// Internal mutation: clear extracted items and reset entries for re-processing
+export const resetForReprocess = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Delete all extracted items (they'll be re-created from PDFs)
+    let deleted = 0;
+    for (const table of ["homeworkItems", "classworkItems", "examItems"] as const) {
+      const rows = await ctx.db.query(table).collect();
+      for (const row of rows) {
+        await ctx.db.delete(row._id);
+        deleted++;
+      }
+    }
+
+    // Reset all completed/failed entries to "pending" for re-processing
+    const entries = await ctx.db.query("schoolEntries").collect();
+    const reset: string[] = [];
+    for (const entry of entries) {
+      if (entry.processingStatus === "complete" || entry.processingStatus === "failed" || entry.processingStatus === "low_confidence") {
+        await ctx.db.patch(entry._id, {
+          processingStatus: "pending",
+          extractionConfidence: undefined,
+          rawExtractedJson: undefined,
+          errorMessage: undefined,
+          retryCount: 0,
+          processedAt: undefined,
+        });
+        reset.push(entry._id);
+      }
+    }
+
+    return { deletedItems: deleted, resetEntries: reset.length };
   },
 });
 

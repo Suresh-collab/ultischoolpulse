@@ -9,6 +9,7 @@
  */
 
 import type * as children from "../children.js";
+import type * as classTracker from "../classTracker.js";
 import type * as classwork from "../classwork.js";
 import type * as crons from "../crons.js";
 import type * as digests from "../digests.js";
@@ -28,6 +29,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   children: typeof children;
+  classTracker: typeof classTracker;
   classwork: typeof classwork;
   crons: typeof crons;
   digests: typeof digests;

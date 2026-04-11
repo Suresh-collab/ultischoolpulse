@@ -42,6 +42,7 @@ export default defineSchema({
     ),
     extractionConfidence: v.optional(v.number()),
     rawExtractedJson: v.optional(v.string()),
+    extractedText: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
     retryCount: v.optional(v.number()),
     createdAt: v.number(),

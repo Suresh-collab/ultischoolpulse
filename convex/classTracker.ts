@@ -11,8 +11,7 @@ async function verifyChildOwnership(
 
   const user = await ctx.db
     .query("users")
-    .withIndex("by_clerkId")
-    .filter((q: any) => q.eq(q.field("clerkId"), identity.subject))
+    .withIndex("by_clerkId", (q: any) => q.eq("clerkId", identity.subject))
     .unique();
   if (!user) throw new ConvexError("User not found");
 

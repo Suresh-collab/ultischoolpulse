@@ -472,8 +472,8 @@ export const processEntry = internalAction({
 
       const fileBuffer = await fileBlob.arrayBuffer();
 
-      // Use pre-extracted text from browser if available, otherwise try server-side
-      let text = (args.extractedText || "").trim();
+      // Text priority: action arg > stored in entry > server-side extraction
+      let text = (args.extractedText || (entry as any).extractedText || "").trim();
       let isImagePdf = false;
       if (text.length < 50) {
         const extracted = await extractPdfText(fileBuffer);

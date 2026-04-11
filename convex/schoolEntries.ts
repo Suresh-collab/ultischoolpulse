@@ -451,38 +451,58 @@ export const cleanAllData = internalMutation({
   },
 });
 
-// Internal mutation: clear extracted items and reset entries for re-processing
+// Internal mutation: clear extracted items, deduplicate entries, and reset for re-processing.
+// Groups entries by childId+fileName, keeps only the best one (preferring entries with extractedText).
 export const resetForReprocess = internalMutation({
   args: {},
   handler: async (ctx) => {
     // Delete all extracted items (they'll be re-created from PDFs)
-    let deleted = 0;
+    let deletedItems = 0;
     for (const table of ["homeworkItems", "classworkItems", "examItems"] as const) {
       const rows = await ctx.db.query(table).collect();
       for (const row of rows) {
         await ctx.db.delete(row._id);
-        deleted++;
+        deletedItems++;
       }
     }
 
-    // Reset all completed/failed entries to "pending" for re-processing
+    // Group entries by childId+fileName to find duplicates
     const entries = await ctx.db.query("schoolEntries").collect();
-    const reset: string[] = [];
+    const groups = new Map<string, typeof entries>();
     for (const entry of entries) {
-      if (entry.processingStatus === "complete" || entry.processingStatus === "failed" || entry.processingStatus === "low_confidence") {
-        await ctx.db.patch(entry._id, {
-          processingStatus: "pending",
-          extractionConfidence: undefined,
-          rawExtractedJson: undefined,
-          errorMessage: undefined,
-          retryCount: 0,
-          processedAt: undefined,
-        });
-        reset.push(entry._id);
-      }
+      const key = `${entry.childId}_${entry.fileName}`;
+      const group = groups.get(key) ?? [];
+      group.push(entry);
+      groups.set(key, group);
     }
 
-    return { deletedItems: deleted, resetEntries: reset.length };
+    let deletedEntries = 0;
+    let resetEntries = 0;
+
+    for (const [, group] of groups) {
+      // Keep the best entry: prefer one with extractedText, then most recent
+      group.sort((a, b) => {
+        if (a.extractedText && !b.extractedText) return -1;
+        if (!a.extractedText && b.extractedText) return 1;
+        return b.createdAt - a.createdAt;
+      });
+
+      const keep = group[0];
+      // Delete duplicates
+      for (let i = 1; i < group.length; i++) {
+        await ctx.db.delete(group[i]._id);
+        deletedEntries++;
+      }
+
+      // Reset the kept entry to pending
+      await ctx.db.patch(keep._id, {
+        processingStatus: "pending" as const,
+        retryCount: 0,
+      });
+      resetEntries++;
+    }
+
+    return { deletedItems, deletedEntries, resetEntries };
   },
 });
 

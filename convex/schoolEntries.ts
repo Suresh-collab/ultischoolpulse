@@ -166,12 +166,14 @@ export const storeClassworkItems = internalMutation({
         .first();
 
       if (existing) {
-        // Update existing item if content changed (re-upload with corrections)
-        const topicsChanged = JSON.stringify(existing.topicsCovered) !== JSON.stringify(item.topicsCovered);
-        if (topicsChanged || existing.notes !== item.notes) {
+        // Merge: append new topics that aren't already present (handles two periods of same subject)
+        const newTopics = item.topicsCovered.filter(
+          (t) => !existing.topicsCovered.includes(t)
+        );
+        if (newTopics.length > 0 || (item.notes && existing.notes !== item.notes)) {
           await ctx.db.patch(existing._id, {
-            topicsCovered: item.topicsCovered,
-            notes: item.notes,
+            topicsCovered: [...existing.topicsCovered, ...newTopics],
+            notes: item.notes || existing.notes,
             schoolEntryId: args.schoolEntryId,
           });
         }

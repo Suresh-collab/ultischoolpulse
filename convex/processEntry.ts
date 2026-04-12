@@ -23,10 +23,14 @@ const SUBJECT_MAP: Record<string, string> = {
   computers: "Computer Science",
   "computer science": "Computer Science",
   "2l hindi": "Hindi (2L)",
+  "2 l hindi": "Hindi (2L)",
   "3l hindi": "Hindi (3L)",
+  "3 l hindi": "Hindi (3L)",
   hindi: "Hindi (2L)",
   "2l telugu": "Telugu (2L)",
+  "2 l telugu": "Telugu (2L)",
   "3l telugu": "Telugu (3L)",
+  "3 l telugu": "Telugu (3L)",
   telugu: "Telugu (2L)",
   "2l kannada": "Kannada (2L)",
   kannada: "Kannada (2L)",
@@ -58,16 +62,22 @@ function normalizeSubject(raw: string): string {
 }
 
 // All known subject tokens sorted longest-first for regex matching
+// Includes both full names AND abbreviations used in Arbor school PDFs
 const KNOWN_SUBJECT_TOKENS = [
+  // Multi-word (must be before single-word to match first)
   "Social Science", "Social Studies", "Computer Science",
   "General Knowledge", "Moral Science", "Classical Dance",
   "Western Dance", "Art & Craft",
+  "2L Hindi", "3L Hindi", "2 L Hindi", "2L Telugu", "3L Telugu", "2 L Telugu",
+  "2L Kannada", "2L Tamil",
+  // Full names
   "Social", "Science", "Math", "Maths", "Mathematics",
-  "English", "Hindi", "2L Hindi", "3L Hindi",
-  "2L Telugu", "3L Telugu", "Telugu",
-  "2L Kannada", "Kannada", "2L Tamil", "Tamil",
-  "Sports", "PT", "Art", "Music", "Computer", "Computers",
-  "EVS", "GK", "Library", "Yoga",
+  "English", "Hindi", "Telugu", "Kannada", "Tamil",
+  "Sports", "Art", "Music", "Computer", "Computers",
+  "EVS", "Library", "Yoga",
+  // Abbreviations used in school PDFs
+  "Eng", "Sci", "SS", "CS", "GK", "PT",
+  "Mus", "WD", "CD", "A/C",
 ].sort((a, b) => b.length - a.length);
 
 // ─── No-homework detection (from CLAUDE.md spec) ───
@@ -92,9 +102,9 @@ const MONTH_NAMES: Record<string, number> = {
 
 function extractDateFromText(text: string): string | null {
   const patterns: Array<{ regex: RegExp; parse: (m: RegExpMatchArray) => { day: number; month: number; year: number } | null }> = [
-    // School format: "Date: 6-04-'26" or "Date : 9-04-'26"
+    // School format: "Date: 6-04-'26" or "Date : 9-04-'26" (handles Unicode smart quotes)
     {
-      regex: /Date\s*:\s*(\d{1,2})[\/\-.](\d{1,2})[\/\-.]'?(\d{2,4})/i,
+      regex: /Date\s*:\s*(\d{1,2})[\/\-.](\d{1,2})[\/\-.][\u0027\u2018\u2019\u0060]?(\d{2,4})/i,
       parse: (m) => ({
         day: parseInt(m[1]),
         month: parseInt(m[2]),
@@ -110,9 +120,9 @@ function extractDateFromText(text: string): string | null {
         year: parseInt(m[3]),
       }),
     },
-    // DD/MM/'YY abbreviated year
+    // DD/MM/'YY abbreviated year (handles Unicode smart quotes)
     {
-      regex: /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.]'(\d{2})\b/,
+      regex: /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.][\u0027\u2018\u2019\u0060](\d{2})\b/,
       parse: (m) => ({
         day: parseInt(m[1]),
         month: parseInt(m[2]),
@@ -156,9 +166,9 @@ function extractDateFromText(text: string): string | null {
 // ─── Due date extraction from homework text ───
 
 function extractDueDate(hometaskText: string, assignedDate: string): string {
-  // Look for explicit dates in homework text
+  // Look for explicit dates in homework text (handle Unicode quotes)
   const datePatterns = [
-    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.]'?(\d{2,4})/,
+    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.][\u0027\u2018\u2019\u0060]?(\d{2,4})/,
     /(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*/i,
   ];
 
@@ -197,16 +207,119 @@ function extractDueDate(hometaskText: string, assignedDate: string): string {
 
 // ─── Types ───
 
+interface ExamInfo {
+  examType: string;
+  examDate: string;
+  portions: string[];
+  notes?: string;
+}
+
 interface SubjectEntry {
   name: string;
   classwork: string;
   homework: Array<{ description: string; dueDate: string }>;
+  exams: ExamInfo[];
 }
 
 interface ExtractionResult {
   date: string;
   confidence: number;
   subjects: SubjectEntry[];
+}
+
+// ─── Exam/Test Detection ───
+
+// Keywords that indicate an exam or test mention (from spec: exam, test, slip test, assessment, submission, correction)
+const EXAM_KEYWORDS_REGEX =
+  /\b(slip\s*test|unit\s*test|periodic\s*test|half[\s-]*yearly|annual\s*exam|exam|test|assessment|quiz|submit\w*|correction|workbook\s*correction|worksheet\s*submission|activity\s*submission)\b/i;
+
+function classifyExamType(text: string): string {
+  const lower = text.toLowerCase();
+  if (/slip\s*test/.test(lower)) return "slip_test";
+  if (/unit\s*test/.test(lower)) return "unit_test";
+  if (/quiz/.test(lower)) return "quiz";
+  if (/exam|half[\s-]*yearly|annual/.test(lower)) return "exam";
+  // submission/correction/assessment/workbook correction → "other"
+  return "other";
+}
+
+function extractExamInfo(block: string, subjectName: string, entryDate: string): ExamInfo[] {
+  if (!EXAM_KEYWORDS_REGEX.test(block)) return [];
+
+  const exams: ExamInfo[] = [];
+
+  // Try to find specific exam mentions — split by common delimiters
+  // The whole block mentions an exam keyword, so extract what we can
+  const examType = classifyExamType(block);
+
+  // Try to extract an exam date from the block text
+  let examDate = "";
+  // Look for date patterns within the block
+  const datePatterns = [
+    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.][\u0027\u2018\u2019\u0060]?(\d{2,4})/,
+    /(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*/i,
+  ];
+
+  for (const pattern of datePatterns) {
+    const m = block.match(pattern);
+    if (m) {
+      if (m[2] && MONTH_NAMES[m[2].substring(0, 3).toLowerCase()]) {
+        const mon = MONTH_NAMES[m[2].substring(0, 3).toLowerCase()];
+        const day = parseInt(m[1]);
+        const baseYear = new Date().getFullYear();
+        examDate = `${baseYear}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      } else if (m[2] && !isNaN(parseInt(m[2]))) {
+        const day = parseInt(m[1]);
+        const month = parseInt(m[2]);
+        const year = m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3]);
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+          examDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        }
+      }
+      break;
+    }
+  }
+
+  // If no date found, use "TBA"
+  if (!examDate) examDate = "TBA";
+
+  // Extract portions/topics: look for chapter/page references or the full block as context
+  const portions: string[] = [];
+  const portionPatterns = [
+    /(?:Ch(?:apter)?[\s.:]*\d+[^,;.]*)/gi,
+    /(?:Pg[\s.:]*\d+[^,;.]*)/gi,
+    /(?:Ls[\s.:-]*\d+[^,;.]*)/gi,
+    /(?:Unit[\s.:]*\d+[^,;.]*)/gi,
+    /(?:Lesson[\s.:]*\d+[^,;.]*)/gi,
+  ];
+
+  for (const pattern of portionPatterns) {
+    let pm;
+    while ((pm = pattern.exec(block)) !== null) {
+      portions.push(pm[0].trim());
+    }
+  }
+
+  // If no specific portions found, use the whole block as context
+  if (portions.length === 0) {
+    // Clean up the block and use it as the topic description
+    const cleaned = block.replace(/\s+/g, " ").trim();
+    if (cleaned.length > 0) portions.push(cleaned);
+  }
+
+  // Determine notes from the exam type context
+  let notes: string | undefined;
+  if (/submit|submission/i.test(block)) notes = "Check submission";
+  if (/correction/i.test(block)) notes = "Workbook correction";
+
+  exams.push({
+    examType,
+    examDate,
+    portions,
+    notes,
+  });
+
+  return exams;
 }
 
 // ─── Main Parser ───
@@ -241,27 +354,29 @@ function parseTransactionSheet(text: string, fallbackDate: string): ExtractionRe
     "gi"
   );
 
-  // Find all subject positions
+  // Find all subject positions (allow duplicates — two English periods = two entries)
   const matches: Array<{ pos: number; name: string; matchEnd: number }> = [];
-  const seenNormalized = new Set<string>();
+  const seenPositions = new Set<string>(); // track multi-word subjects to avoid sub-matches
   let m: RegExpExecArray | null;
 
   while ((m = subjectRegex.exec(flat)) !== null) {
     const rawName = m[1];
     const canonical = normalizeSubject(rawName);
-
-    // Skip duplicates (same normalized subject)
-    if (seenNormalized.has(canonical.toLowerCase())) continue;
-
-    // Skip "Social" or "Science" if "Social Science" was already matched
-    if (
-      (rawName.toLowerCase() === "social" || rawName.toLowerCase() === "science") &&
-      seenNormalized.has("social science")
-    )
-      continue;
-
-    seenNormalized.add(canonical.toLowerCase());
     const startPos = m.index + m[0].indexOf(rawName);
+
+    // Skip "Social" or "Science" if "Social Science" was already matched at nearby position
+    if (rawName.toLowerCase() === "social" || rawName.toLowerCase() === "science") {
+      const nearby = matches.some(
+        (prev) => prev.name === "Social Science" && Math.abs(prev.pos - startPos) < 20
+      );
+      if (nearby) continue;
+    }
+
+    // Avoid matching the same position twice (e.g., "SS" inside "Social Science")
+    const posKey = `${startPos}`;
+    if (seenPositions.has(posKey)) continue;
+    seenPositions.add(posKey);
+
     matches.push({ pos: startPos, name: canonical, matchEnd: startPos + rawName.length });
   }
 
@@ -334,6 +449,7 @@ function parseTransactionSheet(text: string, fallbackDate: string): ExtractionRe
         name: subjectName,
         classwork: classwork || "Classwork done",
         homework: [],
+        exams: [],
       };
 
       // Only add homework if it's real homework (not "no homework" text)
@@ -344,13 +460,18 @@ function parseTransactionSheet(text: string, fallbackDate: string): ExtractionRe
         });
       }
 
+      // Detect exam/test/submission/correction mentions in the full block
+      const fullBlock = (classwork + " " + homeworkText).trim();
+      entry.exams = extractExamInfo(fullBlock, subjectName, entryDate);
+
       subjects.push(entry);
     }
   }
 
   console.log(
     `[parseTransactionSheet] Parsed ${subjects.length} subjects, ` +
-      `${subjects.filter((s) => s.homework.length > 0).length} with homework`
+      `${subjects.filter((s) => s.homework.length > 0).length} with homework, ` +
+      `${subjects.filter((s) => s.exams.length > 0).length} with exams/tests`
   );
 
   return {
@@ -525,6 +646,14 @@ export const processEntry = internalAction({
         topicsCovered: string[];
         entryDate: string;
       }> = [];
+      const examItems: Array<{
+        subject: string;
+        examType: string;
+        examDate: string;
+        portions: string[];
+        notes?: string;
+        announcedDate: string;
+      }> = [];
 
       for (const subject of extractionResult.subjects ?? []) {
         for (const hw of subject.homework ?? []) {
@@ -540,6 +669,16 @@ export const processEntry = internalAction({
             subject: subject.name,
             topicsCovered: [subject.classwork],
             entryDate: actualDate,
+          });
+        }
+        for (const exam of subject.exams ?? []) {
+          examItems.push({
+            subject: subject.name,
+            examType: exam.examType,
+            examDate: exam.examDate,
+            portions: exam.portions,
+            notes: exam.notes,
+            announcedDate: actualDate,
           });
         }
       }
@@ -559,6 +698,15 @@ export const processEntry = internalAction({
           childId: entry.childId,
           parentId: entry.parentId,
           items: classworkItems,
+        });
+      }
+
+      if (examItems.length > 0) {
+        await ctx.runMutation(internal.schoolEntries.storeExamItems, {
+          schoolEntryId: args.entryId,
+          childId: entry.childId,
+          parentId: entry.parentId,
+          items: examItems,
         });
       }
 

@@ -77,7 +77,7 @@ http.route({
     // 5. Schedule processing
     await ctx.scheduler.runAfter(
       0,
-      internal.schoolEntries.processEntry,
+      internal.processEntry.processEntry,
       { entryId }
     );
 
@@ -121,6 +121,41 @@ http.route({
       );
     } catch {
       return new Response("Something went wrong", { status: 500 });
+    }
+  }),
+});
+
+// Accept tutor invite — links tutor to child after signup
+http.route({
+  path: "/accept-tutor-invite",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = url.searchParams.get("token");
+
+    if (!token) {
+      return new Response("Missing token", { status: 400 });
+    }
+
+    try {
+      await ctx.runMutation(internal.children.acceptTutorInvite, { token });
+
+      return new Response(
+        `<!DOCTYPE html>
+<html>
+<head><title>Invite Accepted</title></head>
+<body style="font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F8FAFA">
+  <div style="text-align:center;padding:40px">
+    <h1 style="color:#0F7B6C;margin-bottom:8px">You're linked!</h1>
+    <p style="color:#6B7280">You can now see this student's classwork and exams in your tutor dashboard.</p>
+    <a href="/" style="color:#0F7B6C;text-decoration:underline;font-size:14px">Go to ULTISchoolPulse</a>
+  </div>
+</body>
+</html>`,
+        { status: 200, headers: { "Content-Type": "text/html" } }
+      );
+    } catch {
+      return new Response("Invalid or expired invite link", { status: 400 });
     }
   }),
 });

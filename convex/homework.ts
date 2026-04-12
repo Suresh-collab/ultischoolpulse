@@ -74,6 +74,30 @@ export const forChildThisWeek = query({
   },
 });
 
+// All homework for a child (pending + completed) in a date range
+export const allForChild = query({
+  args: {
+    childId: v.id("children"),
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await verifyChildOwnership(ctx, args.childId);
+
+    return await ctx.db
+      .query("homeworkItems")
+      .withIndex("by_childId_and_dueDate")
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field("childId"), args.childId),
+          q.gte(q.field("dueDate"), args.startDate),
+          q.lte(q.field("dueDate"), args.endDate)
+        )
+      )
+      .collect();
+  },
+});
+
 export const markComplete = mutation({
   args: {
     homeworkId: v.id("homeworkItems"),

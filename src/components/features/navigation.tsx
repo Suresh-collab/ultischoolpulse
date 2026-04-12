@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   Clock,
   Settings,
+  FileSpreadsheet,
   Menu,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { ChildSwitcher } from "./child-switcher";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/class-tracker", label: "Tracker", icon: FileSpreadsheet },
   { href: "/exams", label: "Exams", icon: CalendarCheck },
   { href: "/history", label: "History", icon: Clock },
   { href: "/settings", label: "Settings", icon: Settings },

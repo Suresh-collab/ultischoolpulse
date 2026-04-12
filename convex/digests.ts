@@ -1,9 +1,6 @@
 import { internalAction, internalQuery, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { Resend } from "resend";
-import { render } from "@react-email/render";
-import { DailyDigestEmail } from "../src/lib/email-templates/daily-digest";
-import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
 // Query: list parents eligible for digest at a given time
@@ -116,16 +113,14 @@ export const sendForParent = internalAction({
       process.env.CONVEX_SITE_URL ?? "https://your-convex-url.convex.site";
     const unsubscribeUrl = `${convexUrl}/unsubscribe?userId=${args.parentId}`;
 
-    // Render email
-    const html = await render(
-      DailyDigestEmail({
-        parentName: parent.name,
-        dateDisplay,
-        children: childDigests,
-        appUrl: `${appUrl}/dashboard`,
-        unsubscribeUrl,
-      })
-    );
+    // Render email as plain HTML (no JSX in Convex runtime)
+    const html = buildDigestHtml({
+      parentName: parent.name,
+      dateDisplay,
+      childDigests,
+      dashboardUrl: `${appUrl}/dashboard`,
+      unsubscribeUrl,
+    });
 
     // Determine subject line
     const childNames = children.map((c) => c.name).join(" & ");
@@ -255,3 +250,74 @@ export const unsubscribeUser = internalMutation({
     await ctx.db.patch(args.userId, { digestEnabled: false });
   },
 });
+
+// HTML email builder (no JSX/React dependencies)
+type DigestChild = {
+  childName: string;
+  homework: { subject: string; description: string; dueDate: string }[];
+  exams: { subject: string; examType: string; examDate: string; portions: string[] }[];
+};
+
+function buildDigestHtml(opts: {
+  parentName: string;
+  dateDisplay: string;
+  childDigests: DigestChild[];
+  dashboardUrl: string;
+  unsubscribeUrl: string;
+}): string {
+  const { parentName, dateDisplay, childDigests, dashboardUrl, unsubscribeUrl } = opts;
+  const hasContent = childDigests.some(c => c.homework.length > 0 || c.exams.length > 0);
+
+  const childSections = childDigests.map(child => {
+    const hwBySubject = new Map<string, string[]>();
+    for (const h of child.homework) {
+      const list = hwBySubject.get(h.subject) ?? [];
+      list.push(`${h.description}${h.dueDate ? ` (due ${h.dueDate})` : ""}`);
+      hwBySubject.set(h.subject, list);
+    }
+
+    const hwHtml = child.homework.length > 0
+      ? `<p style="font-size:13px;font-weight:600;color:#0F7B6C;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px">Homework</p>` +
+        Array.from(hwBySubject.entries()).map(([subj, items]) =>
+          `<p style="font-size:14px;font-weight:600;color:#111827;margin:0 0 4px">${subj}</p>` +
+          items.map(i => `<p style="font-size:14px;color:#374151;margin:2px 0 2px 8px">&bull; ${i}</p>`).join("")
+        ).join("")
+      : `<p style="font-size:14px;color:#9CA3AF;font-style:italic;margin:4px 0">No homework today.</p>`;
+
+    const examHtml = child.exams.length > 0
+      ? `<p style="font-size:13px;font-weight:600;color:#0F7B6C;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 8px">Upcoming Exams (7 days)</p>` +
+        child.exams.map(e =>
+          `<div style="margin-bottom:8px;padding-left:8px;border-left:3px solid #F59F00">` +
+          `<p style="font-size:14px;font-weight:600;color:#111827;margin:0 0 2px">${e.subject} — ${e.examType} on ${e.examDate}</p>` +
+          (e.portions.length > 0 ? `<p style="font-size:13px;color:#6B7280;margin:0">Portions: ${e.portions.join(", ")}</p>` : "") +
+          `</div>`
+        ).join("")
+      : "";
+
+    return `<h2 style="font-size:18px;font-weight:600;color:#111827;margin:0 0 12px">${child.childName}</h2>${hwHtml}${examHtml}`;
+  }).join(`<hr style="border-color:#E5E7EB;margin:16px 0">`);
+
+  const bodyContent = hasContent
+    ? childSections
+    : `<p style="font-size:14px;color:#6B7280;line-height:1.5">All clear today — no homework or exams on record. Enjoy the break!</p>`;
+
+  return `<!DOCTYPE html><html><head></head><body style="background-color:#F8FAFA;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:0">
+<div style="margin:0 auto;max-width:560px">
+  <div style="background-color:#0F7B6C;padding:24px 32px;border-radius:12px 12px 0 0">
+    <p style="color:#fff;font-size:20px;font-weight:700;margin:0">ULTISchoolPulse</p>
+    <p style="color:#E6F4F2;font-size:14px;margin:4px 0 0">${dateDisplay}</p>
+  </div>
+  <div style="background-color:#fff;padding:24px 32px">
+    <p style="font-size:16px;color:#111827;margin:0 0 16px">Hi ${parentName},</p>
+    ${bodyContent}
+    <div style="text-align:center;margin-top:24px">
+      <a href="${dashboardUrl}" style="background-color:#0F7B6C;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;display:inline-block">Open Dashboard</a>
+    </div>
+  </div>
+  <div style="background-color:#F8FAFA;padding:16px 32px;border-radius:0 0 12px 12px;text-align:center">
+    <p style="font-size:12px;color:#9CA3AF;margin:4px 0"><a href="${unsubscribeUrl}" style="color:#6B7280;text-decoration:underline">Unsubscribe</a> from daily digest emails</p>
+    <p style="font-size:12px;color:#9CA3AF;margin:4px 0">ULTISchoolPulse — Stop reading PDFs, start knowing what matters.</p>
+  </div>
+</div>
+</body></html>`;
+}

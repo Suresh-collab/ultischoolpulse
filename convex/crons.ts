@@ -19,4 +19,12 @@ crons.cron(
   { digestTime: "evening" }
 );
 
+// Expire stale processing entries every 5 minutes
+crons.interval(
+  "expire stale entries",
+  { minutes: 5 },
+  internal.schoolEntries.expireStaleEntries,
+  {}
+);
+
 export default crons;

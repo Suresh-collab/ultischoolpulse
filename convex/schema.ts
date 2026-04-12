@@ -21,6 +21,7 @@ export default defineSchema({
     schoolName: v.string(),
     grade: v.optional(v.string()),
     tutorIds: v.array(v.id("users")),
+    pendingTutorInvites: v.optional(v.array(v.string())),
     watchedFolderPath: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_parentId", ["parentId"]),
@@ -41,6 +42,7 @@ export default defineSchema({
     ),
     extractionConfidence: v.optional(v.number()),
     rawExtractedJson: v.optional(v.string()),
+    extractedText: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
     retryCount: v.optional(v.number()),
     createdAt: v.number(),
@@ -100,8 +102,7 @@ export default defineSchema({
     isAcknowledged: v.boolean(),
     createdAt: v.number(),
   })
-    .index("by_childId_and_examDate", ["childId", "examDate"])
-    .index("by_childId_upcoming", ["childId", "examDate"]),
+    .index("by_childId_and_examDate", ["childId", "examDate"]),
 
   // Digest log — record of sent digests
   digestLog: defineTable({

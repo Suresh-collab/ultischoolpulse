@@ -27,6 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      afterSignInUrl="/dashboard"
+      afterSignUpUrl="/dashboard"
       allowedRedirectOrigins={[
         "https://ultischoolpulse.vercel.app",
         "http://localhost:3000",
